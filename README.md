@@ -10,6 +10,7 @@ Una arquitectura de microservicios completa —registro de servicios, gateway, b
 registro/      RegistroServicios      -> lo que hace Eureka: quien esta vivo y donde
                BalanceadorRoundRobin  -> lo que hace Ribbon/LoadBalancer: a quien le toca
 resiliencia/   CircuitBreaker         -> lo que hace Resilience4j: cuando dejar de insistir
+               Reintento              -> retry con backoff exponencial y jitter
 gateway/       Gateway                -> lo que hace Spring Cloud Gateway: la puerta unica
 servicio/      MicroServicio          -> un servicio que se registra y expone rutas
 ```
@@ -50,9 +51,22 @@ El detalle que suele hacerse mal: en `SEMIABIERTO` **un solo fallo reabre el cir
 
 Otro detalle: un **404 del servicio no cuenta como fallo**. Que un recurso no exista es una respuesta valida, no un problema de infraestructura; contarlo abriria el circuito por errores del cliente.
 
+## Retry con backoff exponencial
+
+`Reintento` complementa al circuit breaker: antes de rendirse, reintenta la operacion con esperas que crecen exponencialmente (`base * 2^intento`) mas un 20% de jitter aleatorio para evitar el efecto thundering herd — cuando todos los clientes reintentan al mismo instante despues de una caida.
+
+```
+intento 0:  100ms + jitter
+intento 1:  200ms + jitter
+intento 2:  400ms + jitter
+...         hasta un maximo configurable
+```
+
+La espera nunca supera el tope (`esperaMaximaMs`), y el reloj es inyectable igual que en el circuit breaker.
+
 ## Pruebas
 
-**44 pruebas**, con reloj inyectable (`LongSupplier`) para que los vencimientos de latidos y las esperas del cortacircuitos se prueben al instante en vez de con `Thread.sleep`.
+**54 pruebas**, con reloj inyectable (`LongSupplier`) para que los vencimientos de latidos y las esperas del cortacircuitos se prueben al instante en vez de con `Thread.sleep`.
 
 `GatewayTest` son pruebas de integracion de verdad: levantan microservicios reales en puertos libres y el gateway los llama por HTTP sobre loopback. Verifican el reparto entre instancias, el failover cuando una cae, la apertura del cortacircuitos y la recuperacion cuando el servicio revive.
 
