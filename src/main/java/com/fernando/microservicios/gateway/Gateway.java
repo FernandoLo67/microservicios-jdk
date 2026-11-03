@@ -86,10 +86,10 @@ public class Gateway implements AutoCloseable {
                     return new RespuestaGateway(respuesta.statusCode(), respuesta.body(), instancia.id());
                 }
                 ultimoError = "la instancia " + instancia.id() + " respondio " + respuesta.statusCode();
-            } catch (IOException | InterruptedException e) {
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                ultimoError = "no se pudo contactar a " + instancia.id() + ": " + e.getMessage();
+            } catch (IOException e) {
                 ultimoError = "no se pudo contactar a " + instancia.id() + ": " + e.getMessage();
             }
         }
